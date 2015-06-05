@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+"""
+Shen Implementation
+"""
 
 def init_two_layer_model(input_size, hidden_size, output_size):
   """
