@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pdb
 """
 Shen Implementation
 """
@@ -78,15 +79,8 @@ def two_layer_net(X, model, y=None, reg=0.0):
 
   # compute the forward pass
   scores = None
-  #############################################################################
-  # TODO: Perform the forward pass, computing the class scores for the input. #
-  # Store the result in the scores variable, which should be an array of      #
-  # shape (N, C).                                                             #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
+  hidden_layer = np.maximum(0, np.dot(X,W1)+ b1)
+  scores = np.dot(hidden_layer, W2) + b2
   
   # If the targets are not given then jump out, we're done
   if y is None:
@@ -94,29 +88,31 @@ def two_layer_net(X, model, y=None, reg=0.0):
 
   # compute the loss
   loss = None
-  #############################################################################
-  # TODO: Finish the forward pass, and compute the loss. This should include  #
-  # both the data loss and L2 regularization for W1 and W2. Store the result  #
-  # in the variable loss, which should be a scalar. Use the Softmax           #
-  # classifier loss. So that your results match ours, multiply the            #
-  # regularization loss by 0.5                                                #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
+  exp_score = np.exp(scores)
+  probs = exp_score / np.sum(exp_score, axis=1,keepdims=True)
+  correct_logprobs = -1. * np.log(probs[range(N),y])
+  data_loss = np.sum(correct_logprobs) / N
+  loss = data_loss + 0.5 * reg * np.sum(W2*W2) + 0.5 * reg * np.sum(W1*W1)
 
-  # compute the gradients
+  # compute the gradient on dscores, it uses the softmax function gradient
   grads = {}
-  #############################################################################
-  # TODO: Compute the backward pass, computing the derivatives of the weights #
-  # and biases. Store the results in the grads dictionary. For example,       #
-  # grads['W1'] should store the gradient on W1, and be a matrix of same size #
-  #############################################################################
-  pass
-  #############################################################################
-  #                              END OF YOUR CODE                             #
-  #############################################################################
+  dscores = probs
+  dscores[range(N),y] -= 1.
+  dscores /= N
+
+  # backpropagate the gradient to the parameters
+  # Level 2 parameters W2 and b2
+  grads['W2'] = np.dot(hidden_layer.T,dscores)
+  grads['b2'] = np.sum(dscores,axis=0,keepdims=False)
+  dhidden = np.dot(dscores,W2.T)
+  #back-propagate the ReLU
+  dhidden[hidden_layer<= 0] = 0.
+  # Level 1 parameters W1 and b1
+  grads['W1'] = np.dot(X.T, dhidden)
+  grads['b1'] = np.sum(dhidden,axis=0,keepdims=False)
+
+  grads['W2'] += reg * W2
+  grads['W1'] += reg * W1
 
   return loss, grads
 
