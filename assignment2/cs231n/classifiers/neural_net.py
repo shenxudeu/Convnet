@@ -33,7 +33,7 @@ def init_two_layer_model(input_size, hidden_size, output_size):
   model['b2'] = np.zeros(output_size)
   return model
 
-def two_layer_net(X, model, y=None, reg=0.0):
+def two_layer_net(X, model, y=None, reg=0.0, dropout=False,dropP=0.5):
   """
   Compute the loss and gradients for a two layer fully connected neural network.
   The net has an input dimension of D, a hidden layer dimension of H, and
@@ -80,6 +80,9 @@ def two_layer_net(X, model, y=None, reg=0.0):
   # compute the forward pass
   scores = None
   hidden_layer = np.maximum(0, np.dot(X,W1)+ b1)
+  if dropout:
+      hidden_U = (np.random.rand(*hidden_layer.shape) < dropP) / dropP
+      hidden_layer *= hidden_U # drop!
   scores = np.dot(hidden_layer, W2) + b2
   
   # If the targets are not given then jump out, we're done
