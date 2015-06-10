@@ -1,4 +1,7 @@
 import numpy as np
+from im2col import im2col_indices, col2im_indices
+import copy
+import pdb
 
 def affine_forward(x, w, b):
   """
@@ -95,7 +98,7 @@ def conv_forward_naive(x, w, b, conv_param):
 
   The input consists of N data points, each with C channels, height H and width
   W. We convolve each input with F different filters, where each filter spans
-  all C channels and has height HH and width HH.
+  all C channels and has height HH and width WW.
 
   Input:
   - x: Input data of shape (N, C, H, W)
@@ -111,16 +114,46 @@ def conv_forward_naive(x, w, b, conv_param):
     H' = 1 + (H + 2 * pad - HH) / stride
     W' = 1 + (W + 2 * pad - WW) / stride
   - cache: (x, w, b, conv_param)
+
   """
-  out = None
-  #############################################################################
-  # TODO: Implement the convolutional forward pass.                           #
-  # Hint: you can use the function np.pad for padding.                        #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+
+  N,C,H,W = x.shape 
+  F,C,HH,WW = w.shape
+  stride, pad = conv_param['stride'], conv_param['pad']
+  H_prime = 1. + float(H + 2 * pad - HH) / float(stride)
+  W_prime = 1. + float(W + 2 * pad - WW) / float(stride)
+  assert H_prime % 1 == 0
+  assert W_prime % 1 == 0
+  H_prime,W_prime = int(H_prime), int(W_prime)
+
+  # pad input array
+  x_padded = np.pad(x, ((0,0), (0,0), (pad, pad), (pad, pad)), 'constant')
+  H_padded, W_padded = x_padded.shape[2], x_padded.shape[3]
+  # naive implementation of im2col
+  x_cols = None
+  for i in xrange(HH, H_padded+1, stride):
+    for j in xrange(WW, W_padded+1, stride):
+      for n in xrange(N):
+        field = x_padded[n,:,i-HH:i, j-WW:j].reshape((1,C*HH*WW))    
+        if x_cols is None:
+            x_cols = field
+        else:
+            x_cols = np.vstack((x_cols, field))
+  
+  # x_cols shape: (HH * WW * C) x (H_prime * W_prime * N)
+  x_cols = x_cols.T
+
+  #w2col, get w into shape of (F) x (HH * WW * C) 
+  w_cols = w.reshape((F, C*HH *WW))
+  
+  
+  # out_cols shape = (F) x (H_prime * W_prime * N)
+  out_cols = np.dot(w_cols, x_cols) + b.reshape((b.shape[0],1))
+
+  # out shape = N x F x H' x W'
+  out = out_cols.reshape(F, H_prime, W_prime, N)
+  out = out.transpose(3, 0, 1, 2) # (N, F, H', W')
+
   cache = (x, w, b, conv_param)
   return out, cache
 
@@ -130,22 +163,72 @@ def conv_backward_naive(dout, cache):
   A naive implementation of the backward pass for a convolutional layer.
 
   Inputs:
-  - dout: Upstream derivatives.
+  - dout: Upstream derivatives. (N, F, H', W')
   - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
 
   Returns a tuple of:
   - dx: Gradient with respect to x
   - dw: Gradient with respect to w
   - db: Gradient with respect to b
+  
+  - x: Input data of shape (N, C, H, W)
+  - w: Filter weights of shape (F, C, HH, WW)
+  - b: Biases, of shape (F,)
+  - out: Output data, of shape (N, F, H', W') where H' and W' are given by
+    H' = 1 + (H + 2 * pad - HH) / stride
+    W' = 1 + (W + 2 * pad - WW) / stride
+  
   """
   dx, dw, db = None, None, None
-  #############################################################################
-  # TODO: Implement the convolutional backward pass.                          #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  x, w, b, conv_param = cache
+  stride, pad = conv_param['stride'], conv_param['pad']
+  N,C,H,W = x.shape 
+  F,C,HH,WW = w.shape
+ 
+  H_prime = 1. + float(H + 2 * pad - HH) / float(stride)
+  W_prime = 1. + float(W + 2 * pad - WW) / float(stride)
+  assert H_prime % 1 == 0
+  assert W_prime % 1 == 0
+  H_prime,W_prime = int(H_prime), int(W_prime)
+
+  db = np.sum(dout, (0, 2, 3)) # sum along axis N, H', and W'
+  
+  # pad input array
+  x_padded = np.pad(x, ((0,0), (0,0), (pad, pad), (pad, pad)), 'constant')
+  H_padded, W_padded = x_padded.shape[2], x_padded.shape[3]
+  # naive implementation of im2col
+  x_cols = None
+  for i in xrange(HH, H_padded+1, stride):
+    for j in xrange(WW, W_padded+1, stride):
+      for n in xrange(N):
+        field = x_padded[n,:,i-HH:i, j-WW:j].reshape((1,C*HH*WW))    
+        if x_cols is None:
+            x_cols = field
+        else:
+            x_cols = np.vstack((x_cols, field))
+  # x_cols shape: (HH * WW * C) x (H' * W' * N)
+  x_cols = x_cols.T
+  
+  dout_ = dout.transpose(1, 2, 3, 0) # (F, H', W', N)
+  dout_cols = dout_.reshape(F, H_prime * W_prime * N) # (F) x (H' * W' * N)
+
+  dw_cols = np.dot(dout_cols, x_cols.T) # (F) x (HH * WW * C) 
+  dw = dw_cols.reshape(F, C, HH, WW) # (F, C, HH, WW)
+
+  w_cols = w.reshape(F, C*HH*WW) # (F) x (HH * WW * C)
+  dx_cols = np.dot(w_cols.T, dout_cols) # (HH * WW * C) x (H' * W' * N)
+  
+  # col2im: convert back from (d)x_cols to (d)x
+  #dx = col2im_indices(dx_cols, (N, C, H, W), HH, WW, pad, stride)
+  #dx_cols = dx_cols.T # (H' * W' * N) x (HH * WW * C)
+  dx_padded = np.zeros((N, C, H_padded, W_padded))
+  idx = 0
+  for i in xrange(HH, H_padded+1, stride):
+    for j in xrange(WW, W_padded+1, stride):
+      for n in xrange(N):
+        dx_padded[n:n+1,:,i-HH:i,j-WW:j] += dx_cols[:,idx].reshape(1,C,HH,WW)
+        idx += 1
+  dx = dx_padded[:,:,pad:-pad,pad:-pad]
   return dx, dw, db
 
 
@@ -163,6 +246,7 @@ def max_pool_forward_naive(x, pool_param):
   Returns a tuple of:
   - out: Output data
   - cache: (x, pool_param)
+
   """
   out = None
   #############################################################################
