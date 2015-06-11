@@ -248,14 +248,24 @@ def max_pool_forward_naive(x, pool_param):
   - cache: (x, pool_param)
 
   """
-  out = None
-  #############################################################################
-  # TODO: Implement the max pooling forward pass                              #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  N, C, H, W = x.shape
+  pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+  assert (H - pool_height) % stride == 0
+  assert (W - pool_width) % stride == 0
+  out_height = (H - pool_height) / stride + 1
+  out_width = (W - pool_width) / stride + 1
+  
+  out = np.zeros((N,C, out_height, out_width))
+  for c in xrange(C):
+      for n in xrange(N):
+          idx_i = 0
+          for i in xrange(pool_height, H+1, stride):
+              idx_j = 0
+              for j in xrange(pool_width, W+1, stride):
+                  field = x[n,c,i-pool_height:i,j-pool_width:j]
+                  out[n,c,idx_i, idx_j] = np.max(field)
+                  idx_j += 1
+              idx_i += 1
   cache = (x, pool_param)
   return out, cache
 
@@ -271,14 +281,29 @@ def max_pool_backward_naive(dout, cache):
   Returns:
   - dx: Gradient with respect to x
   """
-  dx = None
-  #############################################################################
-  # TODO: Implement the max pooling backward pass                             #
-  #############################################################################
-  pass
-  #############################################################################
-  #                             END OF YOUR CODE                              #
-  #############################################################################
+  x, pool_param = cache
+  dx = np.zeros(x.shape)
+  
+  N, C, H, W = x.shape
+  pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+  assert (H - pool_height) % stride == 0
+  assert (W - pool_width) % stride == 0
+  
+  for c in xrange(C):
+      for n in xrange(N):
+          idx_i = 0
+          for i in xrange(pool_height, H+1, stride):
+              idx_j = 0
+              for j in xrange(pool_width, W+1, stride):
+                  field = x[n,c,i-pool_height:i,j-pool_width:j]
+                  field_col = np.zeros((1, pool_height*pool_width))
+                  field_col[0,np.argmax(field.reshape((1,-1)))] = 1.
+                  
+                  field_col *= dout[n,c,idx_i,idx_j]
+                  dx[n,c,i-pool_height:i,j-pool_width:j] += field_col.reshape(field.shape)
+                  idx_j += 1
+              idx_i += 1
+ 
   return dx
 
 

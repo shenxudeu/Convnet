@@ -5,7 +5,7 @@ from cs231n.fast_layers import *
 from cs231n.layer_utils import *
 
 
-def two_layer_convnet(X, model, y=None, reg=0.0):
+def two_layer_convnet(X, model, y=None, reg=0.0,dropout=False,dropP=0.5):
   """
   Compute the loss and gradient for a simple two-layer ConvNet. The architecture
   is conv-relu-pool-affine-softmax, where the conv layer uses stride-1 "same"
