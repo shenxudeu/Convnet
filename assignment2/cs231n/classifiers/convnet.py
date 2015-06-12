@@ -106,4 +106,18 @@ def init_two_layer_convnet(weight_scale=1e-3, bias_scale=0, input_shape=(3, 32, 
   return model
 
 
-pass
+def small_vgg_convet(X, model, y=None, reg = 0.0, dropout = False,dropP=0.5):
+    """
+    Small VGG convet, the architecture looks like:
+    [conv-relu-conv-relu-pool]xN - [affine]xM - [softmax or SVM]
+    In this example, we pick N = 2, M = 2, softmax.
+    This particular net is constructed as
+    {conv-relu}-{conv}
+    """
+    # Unpack weights
+
+
+
+
+
+
